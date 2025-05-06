@@ -4,7 +4,7 @@ import os
 import numpy as np
 
 # Load model
-MODEL_PATH = "models/pump_model.pkl"
+MODEL_PATH = "Model/pump_model.pkl"
 
 @st.cache_resource
 def load_model():
