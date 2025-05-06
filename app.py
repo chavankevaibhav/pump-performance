@@ -1,4 +1,3 @@
-import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
@@ -16,18 +15,26 @@ class PumpMonitor:
     def _load_data(self, path):
         try:
             df = pd.read_csv(path)
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            if 'timestamp' in df.columns:
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
             return df
         except FileNotFoundError:
-            st.error(f"File not found at: {path}")
+            print(f"Error: File not found at: {path}")
             return None
 
     def calculate_efficiency(self, flow, pressure):
         return (flow * pressure) / (flow + pressure) if (flow + pressure) != 0 else 0
 
-    def train_model(self, save_path="Model/pump_model.pkl"):
+    def train_model(self, save_path="models/pump_model.pkl"):
         if self.data is None:
-            st.error("No data to train on.")
+            print("Error: No data to train on.")
+            return None
+
+        # Check if required columns exist
+        required_cols = ['flow', 'pressure', 'vibration', 'temperature', 'failure']
+        missing_cols = [col for col in required_cols if col not in self.data.columns]
+        if missing_cols:
+            print(f"Error: Missing required columns: {missing_cols}")
             return None
 
         X = self.data[['flow', 'pressure', 'vibration', 'temperature']]
@@ -48,47 +55,59 @@ class PumpMonitor:
     def predict_failure(self, flow, pressure, vibration, temperature):
         if self.model is None:
             try:
-                self.model = joblib.load("Model/pump_model.pkl")
+                self.model = joblib.load("models/pump_model.pkl")
             except FileNotFoundError:
-                st.error("Model not found. Train it first.")
+                print("Error: Model not found. Train it first.")
                 return None
 
         proba = self.model.predict_proba([[flow, pressure, vibration, temperature]])
         return proba[0][1]
 
-# Streamlit UI
-st.title("🚨 Pump Failure Prediction Dashboard")
-
-monitor = PumpMonitor("data/pump_data.csv")
-
-if monitor.data is not None:
-    st.subheader("📊 Pump Data Sample")
-    st.dataframe(monitor.data.head())
-
-    if st.button("🛠 Train Model"):
-        with st.spinner("Training..."):
+def main():
+    print("🚨 Pump Failure Prediction System")
+    print("---------------------------------")
+    
+    # Initialize the monitor
+    monitor = PumpMonitor("data/pump_data.csv")
+    
+    if monitor.data is not None:
+        print("\n📊 Pump Data Sample:")
+        print(monitor.data.head())
+        
+        # For Pyodide/Jupyter environments, we'll use default values
+        try:
+            train = input("\n🛠 Would you like to train the model? (y/n): ").lower()
+        except:
+            print("\n🛠 Running in Pyodide environment - using default values")
+            train = 'y'
+            flow, pressure, vibration, temperature = 100.0, 2.0, 0.5, 70.0
+        
+        if train == 'y':
+            print("Training...")
             acc = monitor.train_model()
             if acc is not None:
-                st.success(f"Model trained! Accuracy: {acc:.4f}")
-
-    st.subheader("🔍 Predict Pump Failure")
-    flow = st.number_input("Flow", min_value=0.0, value=100.0)
-    pressure = st.number_input("Pressure", min_value=0.0, value=2.0)
-    vibration = st.number_input("Vibration", min_value=0.0, value=0.5)
-    temperature = st.number_input("Temperature", min_value=0.0, value=70.0)
-
-    if st.button("Predict"):
+                print(f"Model trained! Accuracy: {acc:.4f}")
+        
+        if 'flow' not in locals():  # Only ask for inputs if not in Pyodide
+            print("\n🔍 Predict Pump Failure")
+            print("Enter the following parameters:")
+            try:
+                flow = float(input("Flow: "))
+                pressure = float(input("Pressure: "))
+                vibration = float(input("Vibration: "))
+                temperature = float(input("Temperature: "))
+            except:
+                print("Using default values for prediction")
+                flow, pressure, vibration, temperature = 100.0, 2.0, 0.5, 70.0
+        
         prob = monitor.predict_failure(flow, pressure, vibration, temperature)
         if prob is not None:
             efficiency = monitor.calculate_efficiency(flow, pressure)
-            st.info(f"Failure Probability: {prob:.4f}")
-            st.info(f"Efficiency: {efficiency:.2f}")
-else:
-    st.warning("⚠ Could not load data. Please check your CSV file path.")
+            print(f"\nResults:")
+            print(f"Failure Probability: {prob:.4f}")
+            print(f"Efficiency: {efficiency:.2f}")
+    else:
+        print("⚠ Could not load data. Please check your CSV file path.")
 
-
-
-
-
-
-
+if __name__ == "__main__":
+    main()
