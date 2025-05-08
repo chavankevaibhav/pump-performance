@@ -7,23 +7,21 @@ from sklearn.metrics import accuracy_score
 import joblib
 import os
 import warnings
+import plotly.express as px # Import Plotly Express
 
 # --- PumpMonitor Class (Adapted for Model/ directory) ---
 class PumpMonitor:
-    def __init__(self): # Data path will be handled by Streamlit uploader or a default
+    def __init__(self):
         self.data = None
         self.model = None
         self.accuracy = None
-        self.model_path = "Model/pump_model.pkl" # <--- CHANGED HERE
+        self.model_path = "Model/pump_model.pkl"
         os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
-
 
     def load_data(self, uploaded_file_or_path):
         try:
-            # If a file path string is passed
             if isinstance(uploaded_file_or_path, str):
                 df = pd.read_csv(uploaded_file_or_path)
-            # If an UploadedFile object from Streamlit is passed
             else:
                 df = pd.read_csv(uploaded_file_or_path)
 
@@ -67,14 +65,13 @@ class PumpMonitor:
             st.warning("Could not stratify data (likely due to imbalance in small dataset). Using regular split.")
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-
         self.model = RandomForestClassifier(n_estimators=100, random_state=42)
         self.model.fit(X_train, y_train)
 
         y_pred = self.model.predict(X_test)
         self.accuracy = accuracy_score(y_test, y_pred)
 
-        joblib.dump(self.model, self.model_path) # self.model_path is already updated
+        joblib.dump(self.model, self.model_path)
         st.session_state.model_trained_this_session = True
         st.session_state.trained_model_accuracy = self.accuracy
         return self.accuracy
@@ -82,10 +79,10 @@ class PumpMonitor:
     def predict_failure(self, flow, pressure, vibration, temperature):
         if self.model is None:
             try:
-                self.model = joblib.load(self.model_path) # self.model_path is already updated
+                self.model = joblib.load(self.model_path)
                 st.info(f"Loaded pre-trained model from {self.model_path}")
             except FileNotFoundError:
-                st.error(f"Error: Model not found. Train it first or ensure '{self.model_path}' exists.") # <--- CHANGED HERE (using self.model_path)
+                st.error(f"Error: Model not found. Train it first or ensure '{self.model_path}' exists.")
                 return None
             except Exception as e:
                 st.error(f"Error loading model: {e}")
@@ -121,7 +118,6 @@ def main():
     if 'data_loaded' not in st.session_state:
         st.session_state.data_loaded = False
 
-
     st.sidebar.header("⚙️ Configuration & Input")
 
     st.sidebar.subheader("1. Load Data")
@@ -149,6 +145,93 @@ def main():
         st.subheader("📊 Pump Data Sample")
         st.dataframe(monitor.data.head())
 
+        # --- NEW: Data Visualizations Section ---
+        st.subheader("🔬 Data Visualizations")
+        plot_cols = ['flow', 'temperature', 'pressure']
+        
+        # Check if essential columns for plotting exist
+        if all(col in monitor.data.columns for col in plot_cols):
+            # Option for 3D Scatter Plot
+            st.markdown("#### 3D Scatter Plot: Flow vs Temperature vs Pressure")
+            try:
+                fig_3d = px.scatter_3d(
+                    monitor.data,
+                    x='flow',
+                    y='temperature',
+                    z='pressure',
+                    color='failure' if 'failure' in monitor.data.columns else None,
+                    title="Pump Parameters (3D View)",
+                    labels={'flow': 'Flow', 'temperature': 'Temperature', 'pressure': 'Pressure'},
+                    hover_data=monitor.data.columns # Show all data on hover
+                )
+                fig_3d.update_layout(margin=dict(l=0, r=0, b=0, t=40))
+                st.plotly_chart(fig_3d, use_container_width=True)
+            except Exception as e:
+                st.warning(f"Could not generate 3D plot: {e}")
+
+            # Pairwise 2D Scatter Plots
+            st.markdown("#### 2D Scatter Plots")
+            
+            # Use columns for layout
+            plot_col1, plot_col2 = st.columns(2)
+
+            with plot_col1:
+                try:
+                    fig_flow_temp = px.scatter(
+                        monitor.data, x='flow', y='temperature',
+                        color='failure' if 'failure' in monitor.data.columns else None,
+                        trendline="ols" if 'failure' in monitor.data.columns and monitor.data['failure'].nunique() > 1 else None, # Ordinary Least Squares trendline
+                        title="Flow vs Temperature",
+                        labels={'flow': 'Flow', 'temperature': 'Temperature'}
+                    )
+                    st.plotly_chart(fig_flow_temp, use_container_width=True)
+                except Exception as e:
+                    st.warning(f"Could not generate Flow vs Temperature plot: {e}")
+                
+                try:
+                    fig_temp_pressure = px.scatter(
+                        monitor.data, x='temperature', y='pressure',
+                        color='failure' if 'failure' in monitor.data.columns else None,
+                        trendline="ols" if 'failure' in monitor.data.columns and monitor.data['failure'].nunique() > 1 else None,
+                        title="Temperature vs Pressure",
+                        labels={'temperature': 'Temperature', 'pressure': 'Pressure'}
+                    )
+                    st.plotly_chart(fig_temp_pressure, use_container_width=True)
+                except Exception as e:
+                    st.warning(f"Could not generate Temperature vs Pressure plot: {e}")
+
+            with plot_col2:
+                try:
+                    fig_flow_pressure = px.scatter(
+                        monitor.data, x='flow', y='pressure',
+                        color='failure' if 'failure' in monitor.data.columns else None,
+                        trendline="ols" if 'failure' in monitor.data.columns and monitor.data['failure'].nunique() > 1 else None,
+                        title="Flow vs Pressure",
+                        labels={'flow': 'Flow', 'pressure': 'Pressure'}
+                    )
+                    st.plotly_chart(fig_flow_pressure, use_container_width=True)
+                except Exception as e:
+                    st.warning(f"Could not generate Flow vs Pressure plot: {e}")
+                
+                # You can add more plots here if needed, e.g., involving 'vibration'
+                if 'vibration' in monitor.data.columns:
+                    try:
+                        fig_flow_vibration = px.scatter(
+                            monitor.data, x='flow', y='vibration',
+                            color='failure' if 'failure' in monitor.data.columns else None,
+                            trendline="ols" if 'failure' in monitor.data.columns and monitor.data['failure'].nunique() > 1 else None,
+                            title="Flow vs Vibration",
+                            labels={'flow': 'Flow', 'vibration': 'Vibration'}
+                        )
+                        st.plotly_chart(fig_flow_vibration, use_container_width=True)
+                    except Exception as e:
+                        st.warning(f"Could not generate Flow vs Vibration plot: {e}")
+
+        else:
+            missing_for_plot = [col for col in plot_cols if col not in monitor.data.columns]
+            st.warning(f"Visualizations require columns: {', '.join(plot_cols)}. Missing: {', '.join(missing_for_plot)}")
+        # --- END: Data Visualizations Section ---
+
         st.sidebar.subheader("2. Train Model")
         if st.sidebar.button("🛠️ Train Model on Current Data"):
             with st.spinner("Training in progress..."):
@@ -159,12 +242,11 @@ def main():
                     st.sidebar.error("Model training failed. Check data.")
     else:
         st.info("Please upload a CSV file or load the default data to proceed.")
-        st.sidebar.markdown("_(Training disabled until data is loaded)_")
+        st.sidebar.markdown("_(Training and Visualizations disabled until data is loaded)_")
 
     st.sidebar.markdown("---")
 
     st.sidebar.subheader("3. Predict Failure")
-    # monitor.model_path will correctly point to "Model/pump_model.pkl"
     if not st.session_state.data_loaded and not os.path.exists(monitor.model_path):
          st.sidebar.warning("Upload data and train a model, or ensure a pre-trained model exists to enable prediction.")
 
@@ -178,7 +260,6 @@ def main():
         temperature = st.sidebar.number_input("Temperature (e.g., 70.0)", value=70.0, format="%.1f")
 
         if st.sidebar.button("🔍 Predict"):
-            # monitor.model_path will correctly point to "Model/pump_model.pkl"
             if monitor.model is None and os.path.exists(monitor.model_path): 
                 monitor.model = joblib.load(monitor.model_path)
 
@@ -201,17 +282,14 @@ def main():
                 else:
                     st.error("Prediction could not be made. Check model and inputs.")
             else:
-                # Ensure this error message also reflects the change if it's hardcoded
-                st.error(f"Model not available. Please train a model or ensure '{monitor.model_path}' exists.") # <--- CHANGED HERE (using monitor.model_path)
+                st.error(f"Model not available. Please train a model or ensure '{monitor.model_path}' exists.")
     else:
         st.sidebar.info("Train a model or ensure a pre-trained model exists to enable prediction.")
         
     if st.session_state.trained_model_accuracy is not None:
         st.sidebar.metric(label="Current Model Accuracy", value=f"{st.session_state.trained_model_accuracy:.4f}")
-    # monitor.model_path will correctly point to "Model/pump_model.pkl"
     elif os.path.exists(monitor.model_path) and monitor.model is None: 
         st.sidebar.info("A pre-trained model might be available. Load data and predict to use it, or retrain.")
-
 
 if __name__ == "__main__":
     main()
