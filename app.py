@@ -145,13 +145,10 @@ def main():
         st.subheader("📊 Pump Data Sample")
         st.dataframe(monitor.data.head())
 
-        # --- NEW: Data Visualizations Section ---
         st.subheader("🔬 Data Visualizations")
         plot_cols = ['flow', 'temperature', 'pressure']
         
-        # Check if essential columns for plotting exist
         if all(col in monitor.data.columns for col in plot_cols):
-            # Option for 3D Scatter Plot
             st.markdown("#### 3D Scatter Plot: Flow vs Temperature vs Pressure")
             try:
                 fig_3d = px.scatter_3d(
@@ -162,17 +159,14 @@ def main():
                     color='failure' if 'failure' in monitor.data.columns else None,
                     title="Pump Parameters (3D View)",
                     labels={'flow': 'Flow', 'temperature': 'Temperature', 'pressure': 'Pressure'},
-                    hover_data=monitor.data.columns # Show all data on hover
+                    hover_data=monitor.data.columns
                 )
                 fig_3d.update_layout(margin=dict(l=0, r=0, b=0, t=40))
                 st.plotly_chart(fig_3d, use_container_width=True)
             except Exception as e:
                 st.warning(f"Could not generate 3D plot: {e}")
 
-            # Pairwise 2D Scatter Plots
             st.markdown("#### 2D Scatter Plots")
-            
-            # Use columns for layout
             plot_col1, plot_col2 = st.columns(2)
 
             with plot_col1:
@@ -180,7 +174,8 @@ def main():
                     fig_flow_temp = px.scatter(
                         monitor.data, x='flow', y='temperature',
                         color='failure' if 'failure' in monitor.data.columns else None,
-                        trendline="ols" if 'failure' in monitor.data.columns and monitor.data['failure'].nunique() > 1 else None, # Ordinary Least Squares trendline
+                        # Trendline requires statsmodels: pip install statsmodels
+                        trendline="ols" if 'failure' in monitor.data.columns and monitor.data['failure'].nunique() > 1 else None,
                         title="Flow vs Temperature",
                         labels={'flow': 'Flow', 'temperature': 'Temperature'}
                     )
@@ -192,6 +187,7 @@ def main():
                     fig_temp_pressure = px.scatter(
                         monitor.data, x='temperature', y='pressure',
                         color='failure' if 'failure' in monitor.data.columns else None,
+                        # Trendline requires statsmodels: pip install statsmodels
                         trendline="ols" if 'failure' in monitor.data.columns and monitor.data['failure'].nunique() > 1 else None,
                         title="Temperature vs Pressure",
                         labels={'temperature': 'Temperature', 'pressure': 'Pressure'}
@@ -205,6 +201,7 @@ def main():
                     fig_flow_pressure = px.scatter(
                         monitor.data, x='flow', y='pressure',
                         color='failure' if 'failure' in monitor.data.columns else None,
+                        # Trendline requires statsmodels: pip install statsmodels
                         trendline="ols" if 'failure' in monitor.data.columns and monitor.data['failure'].nunique() > 1 else None,
                         title="Flow vs Pressure",
                         labels={'flow': 'Flow', 'pressure': 'Pressure'}
@@ -213,12 +210,12 @@ def main():
                 except Exception as e:
                     st.warning(f"Could not generate Flow vs Pressure plot: {e}")
                 
-                # You can add more plots here if needed, e.g., involving 'vibration'
                 if 'vibration' in monitor.data.columns:
                     try:
                         fig_flow_vibration = px.scatter(
                             monitor.data, x='flow', y='vibration',
                             color='failure' if 'failure' in monitor.data.columns else None,
+                            # Trendline requires statsmodels: pip install statsmodels
                             trendline="ols" if 'failure' in monitor.data.columns and monitor.data['failure'].nunique() > 1 else None,
                             title="Flow vs Vibration",
                             labels={'flow': 'Flow', 'vibration': 'Vibration'}
@@ -226,11 +223,9 @@ def main():
                         st.plotly_chart(fig_flow_vibration, use_container_width=True)
                     except Exception as e:
                         st.warning(f"Could not generate Flow vs Vibration plot: {e}")
-
         else:
             missing_for_plot = [col for col in plot_cols if col not in monitor.data.columns]
             st.warning(f"Visualizations require columns: {', '.join(plot_cols)}. Missing: {', '.join(missing_for_plot)}")
-        # --- END: Data Visualizations Section ---
 
         st.sidebar.subheader("2. Train Model")
         if st.sidebar.button("🛠️ Train Model on Current Data"):
