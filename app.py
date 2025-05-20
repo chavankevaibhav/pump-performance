@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 import pandas as pd
 import json
-import warnings # Import warnings
+import warnings
 
 # Suppress specific matplotlib warnings if needed
-warnings.filterfilterwarnings("ignore", category=UserWarning, module="matplotlib")
+warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")
 
 
 # --- Define the PumpSizing Class ---
