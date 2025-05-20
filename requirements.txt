@@ -5,3 +5,5 @@ joblib
 streamlit
 plotly
 statsmodels
+matplotlib
+scipy
