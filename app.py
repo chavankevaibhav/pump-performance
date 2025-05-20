@@ -387,7 +387,7 @@ def fit_quadratic_pump_curve(Q_points, H_points):
 
 # --- Streamlit App Layout ---
 
-st.set_page_config(page_title="Pump Sizing & Analysis", layout="wide", icon=" насос") # Add an icon
+st.set_page_config(page_title="Pump Sizing & Analysis", layout="wide") # Removed 'icon' argument
 
 st.title("Centrifugal Pump Sizing and System Analysis")
 
